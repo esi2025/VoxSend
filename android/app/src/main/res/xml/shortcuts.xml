@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.SEND_MESSAGE">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetPackage="com.example.aliassms"
+            android:targetClass="com.example.aliassms.DeepLinkActivity">
+            <parameter
+                android:name="message.recipient.name"
+                android:key="alias"/>
+            <parameter
+                android:name="message.text"
+                android:key="text"/>
+            <data android:scheme="myapp" android:host="send" />
+        </intent>
+    </capability>
+</shortcuts>
