@@ -1,0 +1,5 @@
+{
+  "name": "AliasSMS - Android Voice Command Simulator",
+  "description": "A simulation of an Android 14 app that maps voice commands to SMS actions with biometric security.",
+  "requestFramePermissions": []
+}
