@@ -2,6 +2,7 @@ export interface AliasEntry {
   id: string;
   alias: string;
   phoneNumber: string;
+  predefinedMessage: string;
   defaultPrefix?: string;
   createdAt: number;
   updatedAt: number;

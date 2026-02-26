@@ -106,6 +106,8 @@ export default function App() {
   const [formAlias, setFormAlias] = useState('');
   const [formPhone, setFormPhone] = useState('');
   const [formPrefix, setFormPrefix] = useState('');
+  const [formMessage, setFormMessage] = useState('');
+  const [shortCodeInput, setShortCodeInput] = useState('');
 
   useEffect(() => {
     const savedAliases = localStorage.getItem('aliases');
@@ -123,13 +125,14 @@ export default function App() {
   }, [logs]);
 
   const handleSaveAlias = () => {
-    if (!formAlias || !formPhone) return;
+    if (!formAlias || !formPhone || !formMessage) return;
 
     if (editingAlias) {
       setAliases(aliases.map(a => a.id === editingAlias.id ? {
         ...a,
         alias: formAlias,
         phoneNumber: formPhone,
+        predefinedMessage: formMessage,
         defaultPrefix: formPrefix,
         updatedAt: Date.now()
       } : a));
@@ -138,6 +141,7 @@ export default function App() {
         id: Math.random().toString(36).substr(2, 9),
         alias: formAlias,
         phoneNumber: formPhone,
+        predefinedMessage: formMessage,
         defaultPrefix: formPrefix,
         createdAt: Date.now(),
         updatedAt: Date.now()
@@ -153,11 +157,31 @@ export default function App() {
     setFormAlias('');
     setFormPhone('');
     setFormPrefix('');
+    setFormMessage('');
     setEditingAlias(null);
   };
 
   const handleDeleteAlias = (id: string) => {
     setAliases(aliases.filter(a => a.id !== id));
+  };
+
+  const triggerSendFlow = (alias: AliasEntry, customText?: string) => {
+    setPendingSms({ 
+      alias: alias.alias, 
+      text: customText || alias.predefinedMessage 
+    });
+    setIsAuthModalOpen(true);
+  };
+
+  const handleShortCodeSubmit = () => {
+    const normalized = normalizeAlias(shortCodeInput);
+    const found = aliases.find(a => normalizeAlias(a.alias) === normalized);
+    if (found) {
+      triggerSendFlow(found);
+      setShortCodeInput('');
+    } else {
+      alert(`Short code "${shortCodeInput}" not found.`);
+    }
   };
 
   const handleVoiceCommand = () => {
@@ -169,9 +193,8 @@ export default function App() {
       
       const found = aliases.find(a => normalizeAlias(a.alias) === aliasName);
       if (found) {
-        setPendingSms({ alias: found.alias, text });
+        triggerSendFlow(found, text);
         setIsVoiceModalOpen(false);
-        setIsAuthModalOpen(true);
       } else {
         alert(`Alias "${aliasName}" not found. Please add it first.`);
       }
@@ -223,6 +246,7 @@ export default function App() {
             <button 
               onClick={() => setIsVoiceModalOpen(true)}
               className="p-3 bg-zinc-200 rounded-2xl hover:bg-zinc-300 transition-colors"
+              title="Voice Command"
             >
               <Mic className="w-6 h-6 text-zinc-700" />
             </button>
@@ -230,6 +254,7 @@ export default function App() {
               <button 
                 onClick={() => { resetForm(); setIsAddModalOpen(true); }}
                 className="p-3 bg-indigo-600 rounded-2xl hover:bg-indigo-700 transition-colors shadow-lg shadow-indigo-200"
+                title="Add New Post"
               >
                 <Plus className="w-6 h-6 text-white" />
               </button>
@@ -238,15 +263,38 @@ export default function App() {
         </div>
 
         {activeTab === 'aliases' && (
-          <div className="relative">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
-            <input 
-              type="text"
-              placeholder="Search aliases..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full bg-white border border-zinc-200 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
-            />
+          <div className="space-y-3">
+            <div className="relative">
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-zinc-400" />
+              <input 
+                type="text"
+                placeholder="Search aliases..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full bg-white border border-zinc-200 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              />
+            </div>
+            
+            {/* Method 2: Short Code Dialing Simulation */}
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Code className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-indigo-400" />
+                <input 
+                  type="text"
+                  placeholder="Enter Short Code..."
+                  value={shortCodeInput}
+                  onChange={(e) => setShortCodeInput(e.target.value)}
+                  onKeyDown={(e) => e.key === 'Enter' && handleShortCodeSubmit()}
+                  className="w-full bg-indigo-50/50 border border-indigo-100 rounded-2xl py-3 pl-12 pr-4 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
+                />
+              </div>
+              <button 
+                onClick={handleShortCodeSubmit}
+                className="bg-indigo-600 text-white p-3 rounded-2xl hover:bg-indigo-700 transition-all active:scale-95"
+              >
+                <Send className="w-6 h-6" />
+              </button>
+            </div>
           </div>
         )}
       </header>
@@ -265,20 +313,34 @@ export default function App() {
             ) : (
               filteredAliases.map(alias => (
                 <Card key={alias.id} className="flex justify-between items-center group">
-                  <div>
-                    <h3 className="font-semibold text-lg">{alias.alias}</h3>
+                  <div className="flex-1">
+                    <div className="flex items-center gap-2">
+                      <h3 className="font-semibold text-lg">{alias.alias}</h3>
+                      <span className="bg-zinc-100 text-zinc-500 text-[10px] px-2 py-0.5 rounded-full font-mono uppercase tracking-tighter">Code</span>
+                    </div>
                     <p className="text-zinc-500 font-mono text-sm">{maskPhone(alias.phoneNumber)}</p>
-                    {alias.defaultPrefix && (
-                      <p className="text-xs text-indigo-600 mt-1 italic">Prefix: "{alias.defaultPrefix}"</p>
-                    )}
+                    <p className="text-xs text-zinc-400 mt-1 line-clamp-1 italic">Msg: {alias.predefinedMessage}</p>
                   </div>
-                  <div className="flex gap-1">
+                  
+                  <div className="flex gap-1 items-center">
+                    {/* Method 3: Direct Button */}
+                    <button 
+                      onClick={() => triggerSendFlow(alias)}
+                      className="p-3 bg-emerald-50 text-emerald-600 hover:bg-emerald-600 hover:text-white rounded-2xl transition-all active:scale-90 mr-2"
+                      title="Send Predefined Message"
+                    >
+                      <Send className="w-5 h-5" />
+                    </button>
+                    
+                    <div className="h-8 w-[1px] bg-zinc-100 mx-1" />
+                    
                     <button 
                       onClick={() => {
                         setEditingAlias(alias);
                         setFormAlias(alias.alias);
                         setFormPhone(alias.phoneNumber);
                         setFormPrefix(alias.defaultPrefix || '');
+                        setFormMessage(alias.predefinedMessage);
                         setIsAddModalOpen(true);
                       }}
                       className="p-2 hover:bg-zinc-100 rounded-xl transition-colors"
@@ -364,8 +426,9 @@ export default function App() {
               <pre>{`@Entity(tableName = "aliases")
 data class AliasEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
-    @ColumnInfo(index = true) val alias: String, // Normalized to lowercase
+    @ColumnInfo(index = true) val alias: String, // Short Code / Alias
     val phoneNumber: String,
+    val predefinedMessage: String, // The fixed text
     val defaultPrefix: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
@@ -383,9 +446,9 @@ data class AliasEntry(
         val alias = intent.data?.getQueryParameter("alias")
         val text = intent.data?.getQueryParameter("text")
         
-        if (alias != null && text != null) {
-            // Trigger Biometric Gate -> Send SMS
-            showBiometricPrompt(alias, text)
+        if (alias != null) {
+            // If text is null, we use the predefinedMessage from DB
+            triggerFlow(alias, text)
         }
     }
 }`}</pre>
@@ -423,17 +486,17 @@ data class AliasEntry(
       <Modal 
         isOpen={isAddModalOpen} 
         onClose={() => setIsAddModalOpen(false)} 
-        title={editingAlias ? 'Edit Alias' : 'New Alias'}
+        title={editingAlias ? 'Edit Post' : 'New Post'}
       >
         <div className="space-y-4">
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Alias Name</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Short Code / Alias</label>
             <input 
               type="text"
-              placeholder="e.g. Esmaili"
+              placeholder="e.g. 101 or Esmaili"
               value={formAlias}
               onChange={(e) => setFormAlias(e.target.value)}
-              className="w-full bg-zinc-100 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-indigo-500/20 transition-all"
+              className="w-full bg-zinc-100 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-indigo-500/20 transition-all font-mono"
             />
           </div>
           <div>
@@ -447,7 +510,16 @@ data class AliasEntry(
             />
           </div>
           <div>
-            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Default Prefix (Optional)</label>
+            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Predefined Message (The Text)</label>
+            <textarea 
+              placeholder="e.g. come to my office"
+              value={formMessage}
+              onChange={(e) => setFormMessage(e.target.value)}
+              className="w-full bg-zinc-100 border-none rounded-2xl py-3 px-4 focus:ring-2 focus:ring-indigo-500/20 transition-all min-h-[100px] resize-none"
+            />
+          </div>
+          <div>
+            <label className="block text-xs font-bold text-zinc-400 uppercase mb-1 ml-1">Prefix (Optional)</label>
             <input 
               type="text"
               placeholder="e.g. Mr Esmaili, "
@@ -457,7 +529,7 @@ data class AliasEntry(
             />
           </div>
           <Button onClick={handleSaveAlias} className="w-full py-4 mt-4">
-            {editingAlias ? 'Update Alias' : 'Create Alias'}
+            {editingAlias ? 'Update Post' : 'Create Post'}
           </Button>
         </div>
       </Modal>

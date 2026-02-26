@@ -59,14 +59,16 @@ class DeepLinkActivity : ComponentActivity() {
         biometricPrompt.authenticate(promptInfo)
     }
 
-    private fun executeSmsFlow(alias: String, text: String) {
+    private fun executeSmsFlow(alias: String, text: String?) {
         lifecycleScope.launch {
             val entry = withContext(Dispatchers.IO) {
                 db.aliasDao().getByAlias(alias)
             }
 
             if (entry != null) {
-                val fullMessage = (entry.defaultPrefix ?: "") + text
+                // Use provided text from voice command, or fallback to predefinedMessage
+                val messageContent = text ?: entry.predefinedMessage
+                val fullMessage = (entry.defaultPrefix ?: "") + messageContent
                 SmsSender.sendSms(this@DeepLinkActivity, entry.phoneNumber, fullMessage)
                 
                 withContext(Dispatchers.IO) {

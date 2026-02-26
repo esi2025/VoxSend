@@ -8,6 +8,7 @@ data class AliasEntry(
     @PrimaryKey(autoGenerate = true) val id: Long = 0,
     @ColumnInfo(index = true) val alias: String,
     val phoneNumber: String,
+    val predefinedMessage: String,
     val defaultPrefix: String? = null,
     val createdAt: Long = System.currentTimeMillis(),
     val updatedAt: Long = System.currentTimeMillis()
